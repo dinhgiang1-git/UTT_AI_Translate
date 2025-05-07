@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../../public/css/luyenviet.css">
+    <title>Luyện viết</title>
+</head>
+<body>
+    <div class="navbar-container">
+        <div class="navbar">
+            <div class="navbar-left">
+                <a href="" class="navbar-logo">
+                    <h2>ENGL</h2>
+                    <span>|</span>
+                    <span class="navbar-name" id="user-name">Giang</span>
+                </a>
+            </div>
+            <div class="navbar-right">
+                <ul>
+                    <li><a href="tudien.html">Từ điển</a></li>
+                    <li><a href="baitap.html">Bài tập</a></li>
+                    <li><a href="luyenviet.html">Luyện viết</a></li>
+                    <li><a href="">Tư vấn</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="main-container">
+        <div class="main">
+            <div class="main-left">
+                <h3>Luyện Viết</h3>
+                <form action="" class="main-form" id="writing-form">                 
+                    <p>Nội dung bài viết của bạn*</p>
+                    <textarea id="keyword" required rows="18"></textarea>                    
+                    <button type="submit">Đánh giá</button>
+                </form>
+            </div>
+            <div class="main-right" id="result">
+                <h5>Chờ nhập dữ liệu...</h5>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Hiển thị tên người dùng từ localStorage
+        const userData = JSON.parse(localStorage.getItem('userData'));
+        if (userData && userData.name) {
+            document.getElementById('user-name').textContent = userData.name;
+        }
+
+        document.getElementById('writing-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const content = document.getElementById('keyword').value.trim();
+            const resultDiv = document.getElementById('result');
+
+            // Kiểm tra đầu vào
+            if (!content) {
+                resultDiv.innerHTML = '<h5>Vui lòng nhập nội dung bài viết!</h5>';
+                return;
+            }
+
+            if (!userData || !userData.apiKey) {
+                resultDiv.innerHTML = '<h5>Lỗi: Không tìm thấy API key. Vui lòng đăng nhập lại.</h5>';
+                return;
+            }
+
+            const apiKey = userData.apiKey;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+            // Tạo prompt chi tiết để yêu cầu Gemini API phân tích bài viết
+            const prompt = `
+                Bạn là một trợ lý luyện viết tiếng Anh chuyên nghiệp. Tôi đã viết một đoạn văn bằng tiếng Anh như sau:
+
+                "${content}"
+
+                Vui lòng phân tích bài viết của tôi và cung cấp phản hồi chi tiết theo định dạng sau:
+                - **Lời chào và động viên**: Khuyến khích tôi, ví dụ: "Bài viết của bạn khá tốt! Hãy cùng xem xét một số điểm để cải thiện nhé."
+                - **Nhận xét bài viết**:
+                  - Lỗi chính tả và ngữ pháp (nếu có, liệt kê cụ thể).
+                  - Lỗi logic (nếu có, giải thích).
+                  - Đánh giá mức độ rõ ràng, mạch lạc (rõ ràng không, có dễ hiểu không).
+                  - Đánh giá thời gian (tôi có dùng đúng thì không, giải thích).
+                  - Đề xuất cải thiện (thay từ, cấu trúc câu, v.v.).
+                - **Đề xuất sửa chữa**: Đưa ra phiên bản sửa chữa của bài viết với các thay đổi cụ thể (in đậm các phần được sửa).
+                - **Lời khuyên tổng quát**: Gợi ý cách cải thiện kỹ năng viết tiếng Anh trong tương lai (ví dụ: đọc sách, luyện viết hàng ngày, v.v.).
+
+                Định dạng kết quả bằng HTML để dễ hiển thị, sử dụng các thẻ như <strong>, <ul>, <li>.
+            `;
+
+            const payload = {
+                contents: [{
+                    role: "user",
+                    parts: [{
+                        text: prompt
+                    }]
+                }],
+                generationConfig: {
+                    temperature: 1,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 8192,
+                    responseMimeType: "text/plain"
+                }
+            };
+
+            try {
+                // Hiển thị trạng thái đang tải
+                resultDiv.innerHTML = '<h5>Đang đánh giá...</h5>';
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Lỗi: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (!data.candidates || !data.candidates[0].content) {
+                    throw new Error('Phản hồi API không hợp lệ');
+                }
+
+                const htmlContent = data.candidates[0].content.parts[0].text;
+
+                // Hiển thị kết quả trong main-right
+                resultDiv.innerHTML = `
+                    <h3>Kết quả đánh giá bài viết</h3>
+                    <div class="writing-feedback">${htmlContent}</div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<h5>Lỗi: Không thể đánh giá. ${error.message}</h5>`;
+            }
+        });
+    </script>
+</body>
+</html>
