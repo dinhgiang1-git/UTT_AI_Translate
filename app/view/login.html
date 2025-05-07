@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../../public/css/login.css">
+    <title>Login</title>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login">
+            <div class="login-heading">
+                <h2>Chào Mừng</h2>
+                <p>EngL muốn biết một số thông tin cơ bản để hỗ trợ bạn học tập tốt nhất</p>
+            </div>
+            <form action="" class="login-info" id="login-form">
+                <p>Tên của bạn là</p>
+                <input type="text" class="text-Ten" id="name" required>
+                <p class="error" id="name-error"></p>
+                <p>Giới tính của bạn là</p>
+                <select class="select-GioiTinh" id="gender">
+                    <option value="Nam">Nam</option>
+                    <option value="Nữ">Nữ</option>
+                </select>
+                <p>Tuổi của bạn</p>
+                <input type="text" class="text-Tuoi" id="age" required>
+                <p class="error" id="age-error"></p>
+                <p>Gemini API Key</p>
+                <input type="text" class="text-API" id="api-key" placeholder="Enter your Gemini API key" required>
+                <p class="error" id="api-error"></p>
+                <p>Bạn có thể lấy API Key từ <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a></p>
+                <button type="submit">Tiếp tục</button>
+            </form>
+        </div>
+    </div>
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            // Xóa thông báo lỗi trước đó
+            document.getElementById('name-error').textContent = '';
+            document.getElementById('age-error').textContent = '';
+            document.getElementById('api-error').textContent = '';
+
+            // Lấy giá trị từ form
+            const name = document.getElementById('name').value.trim();
+            const age = document.getElementById('age').value.trim();
+            const apiKey = document.getElementById('api-key').value.trim();
+
+            let isValid = true;
+
+            // Kiểm tra tên
+            if (!name) {
+                document.getElementById('name-error').textContent = 'Tên không được để trống';
+                isValid = false;
+            }
+
+            // Kiểm tra tuổi
+            if (!age) {
+                document.getElementById('age-error').textContent = 'Tuổi không được để trống';
+                isValid = false;
+            } else if (isNaN(age) || age <= 0) {
+                document.getElementById('age-error').textContent = 'Tuổi phải là một số hợp lệ';
+                isValid = false;
+            }
+
+            // Kiểm tra Gemini API Key
+            if (!apiKey) {
+                document.getElementById('api-error').textContent = 'API Key không được để trống';
+                isValid = false;
+            } else {
+                // Kiểm tra API key bằng cách gửi yêu cầu thử tới Gemini API
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+                const payload = {
+                    contents: [{
+                        role: "user",
+                        parts: [{
+                            text: "Kiểm tra API key"
+                        }]
+                    }],
+                    generationConfig: {
+                        temperature: 1,
+                        topK: 40,
+                        topP: 0.95,
+                        maxOutputTokens: 8192,
+                        responseMimeType: "text/plain"
+                    }
+                };
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('API key không hợp lệ');
+                    }
+
+                    const data = await response.json();
+                    if (!data.candidates || !data.candidates[0].content) {
+                        throw new Error('Phản hồi API không hợp lệ');
+                    }
+                } catch (error) {
+                    document.getElementById('api-error').textContent = 'API Key không hợp lệ: ' + error.message;
+                    isValid = false;
+                }
+            }
+
+            if (isValid) {
+                // Lưu dữ liệu hợp lệ vào localStorage hoặc chuyển sang bước tiếp theo
+                localStorage.setItem('userData', JSON.stringify({ name, age, gender: document.getElementById('gender').value, apiKey }));
+                alert('Thông tin hợp lệ!');
+                // Chuyển hướng hoặc chuyển sang trang dịch
+                 window.location.href = 'tudien.html';
+            }
+        });
+    </script>
+</body>
+</html>

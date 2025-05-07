@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../../public/css/baitap.css">
+    <title>Bài tập</title>
+</head>
+<body>
+    <div class="navbar-container">
+        <div class="navbar">
+            <div class="navbar-left">
+                <a href="" class="navbar-logo">
+                    <h2>ENGL</h2>
+                    <span>|</span>
+                    <span class="navbar-name" id="user-name">Giang</span>
+                </a>
+            </div>
+            <div class="navbar-right">
+                <ul>
+                    <li><a href="tudien.html">Từ điển</a></li>
+                    <li><a href="baitap.html">Bài tập</a></li>
+                    <li><a href="luyenviet.html">Luyện viết</a></li>
+                    <li><a href="">Tư vấn</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="main-container">
+        <div class="main">
+            <div class="main-left">
+                <h3>Bài tập</h3>
+                <form action="" class="main-form" id="exercise-form">                 
+                    <p>Nhập chủ đề của bài tập</p>
+                    <input type="text" class="text-TuCanTra" id="topic" placeholder="Ví dụ: Jobs people do" required>
+                    <p>Số lượng câu hỏi</p>
+                    <input type="number" id="num-questions" min="1" max="20" value="5" required>
+                    <p>Chọn dạng câu hỏi</p>
+                    <div class="question-types">
+                        <label><input type="checkbox" name="question-type" value="Multiple Choice"> Trắc nghiệm chọn từ thích hợp</label><br>
+                        <label><input type="checkbox" name="question-type" value="Fill in the Blank"> Điền vào chỗ trống</label><br>
+                        <label><input type="checkbox" name="question-type" value="Reading Comprehension"> Đọc hiểu văn bản</label><br>
+                        <label><input type="checkbox" name="question-type" value="Grammar"> Ngữ pháp</label><br>
+                        <label><input type="checkbox" name="question-type" value="Collocation"> Phối hợp từ</label><br>
+                        <label><input type="checkbox" name="question-type" value="Synonyms and Antonyms"> Từ đồng nghĩa/Từ trái nghĩa</label><br>
+                        <label><input type="checkbox" name="question-type" value="Vocabulary"> Từ vựng</label><br>
+                        <label><input type="checkbox" name="question-type" value="Error Identification"> Xác định lỗi sai</label><br>
+                    </div>
+                    <button type="submit">Tạo bài tập</button>
+                </form>
+            </div>
+            <div class="main-right" id="result">
+                <h5>Waiting for fetching...</h5>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Hiển thị tên người dùng từ localStorage
+        const userData = JSON.parse(localStorage.getItem('userData'));
+        if (userData && userData.name) {
+            document.getElementById('user-name').textContent = userData.name;
+        }
+
+        // Lấy API key từ localStorage
+        if (!userData || !userData.apiKey) {
+            document.getElementById('result').innerHTML = '<h5>Lỗi: Không tìm thấy API key. Vui lòng đăng nhập lại.</h5>';
+        }
+        const apiKey = userData.apiKey;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+        // Biến lưu trữ câu trả lời đúng và giải thích
+        let correctAnswers = [];
+
+        // Xử lý form tạo bài tập
+        document.getElementById('exercise-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const topic = document.getElementById('topic').value.trim();
+            const numQuestions = parseInt(document.getElementById('num-questions').value);
+            const questionTypes = Array.from(document.querySelectorAll('input[name="question-type"]:checked')).map(input => input.value);
+            const resultDiv = document.getElementById('result');
+
+            // Kiểm tra đầu vào
+            if (!topic) {
+                resultDiv.innerHTML = '<h5>Vui lòng nhập chủ đề!</h5>';
+                return;
+            }
+            if (numQuestions < 1 || numQuestions > 20) {
+                resultDiv.innerHTML = '<h5>Số lượng câu hỏi phải từ 1 đến 20!</h5>';
+                return;
+            }
+            if (questionTypes.length === 0) {
+                resultDiv.innerHTML = '<h5>Vui lòng chọn ít nhất một dạng câu hỏi!</h5>';
+                return;
+            }
+
+            // Tạo prompt chi tiết để yêu cầu Gemini API tạo bài tập
+            const prompt = `
+                Bạn là một trợ lý học tiếng Anh chuyên nghiệp. Tôi muốn tạo một bài tập tiếng Anh với các thông tin sau:
+                - **Chủ đề**: "${topic}"
+                - **Số lượng câu hỏi**: ${numQuestions}
+                - **Dạng câu hỏi**: ${questionTypes.join(', ')}
+
+                Vui lòng tạo bài tập với các dạng câu hỏi được yêu cầu. Định dạng mỗi câu hỏi theo cấu trúc HTML như sau:
+
+                - Nếu là câu trắc nghiệm (Multiple Choice, Grammar, Collocation, Synonyms and Antonyms, Vocabulary, Error Identification):
+                  <div class="question" data-answer="[Đáp án đúng]" data-type="multiple-choice" data-explanation="[Giải thích chi tiết bằng tiếng Việt]">
+                      <p><strong>Câu [số thứ tự]:</strong> [Câu hỏi]</p>
+                      <ul>
+                          <li><label><input type="radio" name="q[số thứ tự]" value="A"> A. [Đáp án A]</label></li>
+                          <li><label><input type="radio" name="q[số thứ tự]" value="B"> B. [Đáp án B]</label></li>
+                          <li><label><input type="radio" name="q[số thứ tự]" value="C"> C. [Đáp án C]</label></li>
+                          <li><label><input type="radio" name="q[số thứ tự]" value="D"> D. [Đáp án D]</label></li>
+                      </ul>
+                  </div>
+
+                - Nếu là điền vào chỗ trống (Fill in the Blank):
+                  <div class="question" data-answer="[Đáp án đúng]" data-type="fill-in-the-blank" data-explanation="[Giải thích chi tiết bằng tiếng Việt]">
+                      <p><strong>Câu [số thứ tự]:</strong> [Câu hỏi với chỗ trống là ____]</p>
+                      <input type="text" class="fill-blank" placeholder="Nhập đáp án">
+                  </div>
+
+                - Nếu là đọc hiểu văn bản (Reading Comprehension):
+                  <div class="question" data-answer="[Đáp án đúng]" data-type="multiple-choice" data-explanation="[Giải thích chi tiết bằng tiếng Việt]">
+                      <p><strong>Đọc đoạn văn:</strong></p>
+                      <p>[Đoạn văn ngắn]</p>
+                      <p><strong>Câu [số thứ tự]:</strong> [Câu hỏi]</p>
+                      <ul>
+                          <li><label><input type="radio" name="q[số thứ tự]" value="A"> A. [Đáp án A]</label></li>
+                          <li><label><input type="radio" name="q[số thứ tự]" value="B"> B. [Đáp án B]</label></li>
+                          <li><label><input type="radio" name="q[số thứ tự]" value="C"> C. [Đáp án C]</label></li>
+                          <li><label><input type="radio" name="q[số thứ tự]" value="D"> D. [Đáp án D]</label></li>
+                      </ul>
+                  </div>
+
+                Đảm bảo các câu hỏi phù hợp với trình độ cơ bản đến trung cấp. Mỗi câu hỏi phải có:
+                - Đáp án đúng được lưu trong thuộc tính data-answer.
+                - Giải thích chi tiết bằng tiếng Việt được lưu trong thuộc tính data-explanation. Giải thích phải:
+                  - Giải thích rõ ràng lý do tại sao đáp án đúng là chính xác.
+                  - Giải thích tại sao các đáp án khác (nếu có) là sai.
+                  - Cung cấp thông tin bổ sung hữu ích như mẹo học tiếng Anh, ngữ pháp liên quan, ví dụ minh họa, hoặc cách sử dụng từ vựng trong ngữ cảnh thực tế.
+                  - Viết ngắn gọn, dễ hiểu, phù hợp với người học trình độ cơ bản đến trung cấp.
+            `;
+
+            const payload = {
+                contents: [{
+                    role: "user",
+                    parts: [{ text: prompt }]
+                }],
+                generationConfig: {
+                    temperature: 1,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 8192,
+                    responseMimeType: "text/plain"
+                }
+            };
+
+            try {
+                resultDiv.innerHTML = '<h5>Đang tạo bài tập...</h5>';
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Lỗi: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (!data.candidates || !data.candidates[0].content) {
+                    throw new Error('Phản hồi API không hợp lệ');
+                }
+
+                const htmlContent = data.candidates[0].content.parts[0].text;
+
+                // Lưu trữ đáp án đúng và giải thích
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(`<div>${htmlContent}</div>`, 'text/html');
+                correctAnswers = Array.from(doc.querySelectorAll('.question')).map(q => ({
+                    answer: q.getAttribute('data-answer'),
+                    type: q.getAttribute('data-type'),
+                    explanation: q.getAttribute('data-explanation')
+                }));
+
+                // Hiển thị bài tập trong main-right
+                resultDiv.innerHTML = `
+                    <h3>Bài tập: ${topic}</h3>
+                    <div class="exercise-content">${htmlContent}</div>
+                    <button onclick="submitAnswers()">Nộp bài</button>
+                    <div id="score"></div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<h5>Lỗi: Không thể tạo bài tập. ${error.message}</h5>`;
+            }
+        });
+
+        // Hàm tính điểm, đánh dấu câu đúng/sai và hiển thị giải thích
+        function submitAnswers() {
+            let score = 0;
+            const questions = document.querySelectorAll('.question');
+            const scoreDiv = document.getElementById('score');
+            const results = [];
+
+            questions.forEach((question, index) => {
+                const correctAnswer = correctAnswers[index].answer;
+                const explanation = correctAnswers[index].explanation;
+                const type = correctAnswers[index].type;
+                let userAnswer;
+                let isCorrect = false;
+
+                // Tạo div để hiển thị kết quả và giải thích
+                let resultDiv = question.querySelector('.result') || document.createElement('div');
+                resultDiv.className = 'result';
+                question.appendChild(resultDiv);
+
+                if (type === 'multiple-choice') {
+                    const selected = question.querySelector(`input[name="q${index + 1}"]:checked`);
+                    userAnswer = selected ? selected.value : null;
+
+                    // Đánh dấu đáp án đúng (màu xanh)
+                    const correctOption = question.querySelector(`input[value="${correctAnswer}"]`);
+                    if (correctOption) {
+                        correctOption.parentElement.style.backgroundColor = '#4caf50'; // Màu xanh
+                        correctOption.parentElement.style.color = 'white';
+                    }
+
+                    // Nếu sai, đánh dấu đáp án sai của người dùng (màu đỏ)
+                    if (userAnswer) {
+                        if (userAnswer === correctAnswer) {
+                            isCorrect = true;
+                            score++;
+                            resultDiv.innerHTML = `<p style="color: green;">Đúng!</p><p><strong>Giải thích:</strong> ${explanation}</p>`;
+                            results.push(`Câu ${index + 1}: Đúng`);
+                        } else {
+                            const wrongOption = question.querySelector(`input[value="${userAnswer}"]`);
+                            if (wrongOption) {
+                                wrongOption.parentElement.style.backgroundColor = '#f44336'; // Màu đỏ
+                                wrongOption.parentElement.style.color = 'white';
+                            }
+                            resultDiv.innerHTML = `<p style="color: red;">Sai! Đáp án đúng: ${correctAnswer}</p><p><strong>Giải thích:</strong> ${explanation}</p>`;
+                            results.push(`Câu ${index + 1}: Sai`);
+                        }
+                    } else {
+                        resultDiv.innerHTML = `<p style="color: red;">Sai! Chưa chọn đáp án. Đáp án đúng: ${correctAnswer}</p><p><strong>Giải thích:</strong> ${explanation}</p>`;
+                        results.push(`Câu ${index + 1}: Sai (Chưa chọn đáp án)`);
+                    }
+                } else if (type === 'fill-in-the-blank') {
+                    userAnswer = question.querySelector('.fill-blank').value.trim();
+                    const inputField = question.querySelector('.fill-blank');
+
+                    if (userAnswer.toLowerCase() === correctAnswer.toLowerCase()) {
+                        isCorrect = true;
+                        score++;
+                        inputField.style.backgroundColor = '#4caf50'; // Màu xanh
+                        inputField.style.color = 'white';
+                        resultDiv.innerHTML = `<p style="color: green;">Đúng!</p><p><strong>Giải thích:</strong> ${explanation}</p>`;
+                        results.push(`Câu ${index + 1}: Đúng`);
+                    } else {
+                        inputField.style.backgroundColor = '#f44336'; // Màu đỏ
+                        inputField.style.color = 'white';
+                        inputField.value = `${userAnswer} (Đáp án đúng: ${correctAnswer})`;
+                        resultDiv.innerHTML = `<ldots
+            <p style="color: red;">Sai! Đáp án đúng: ${correctAnswer}</p><p><strong>Giải thích:</strong> ${explanation}</p>`;
+                        results.push(`Câu ${index + 1}: Sai`);
+                    }
+                }
+            });
+
+            // Hiển thị kết quả tổng
+            scoreDiv.innerHTML = `
+                <h4>Kết quả: ${score}/${questions.length}</h4>
+                <p>Điểm số: ${(score / questions.length * 100).toFixed(2)}%</p>
+            `;
+
+            // Vô hiệu hóa các input sau khi nộp bài
+            document.querySelectorAll('input').forEach(input => {
+                input.disabled = true;
+            });
+            document.querySelector('button').disabled = true;
+        }
+    </script>
+</body>
+</html>
